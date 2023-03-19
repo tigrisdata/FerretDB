@@ -15,23 +15,32 @@
 package tigris
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/FerretDB/FerretDB/internal/handlers/common"
+	"github.com/FerretDB/FerretDB/internal/handlers/tigris/tigrisdb"
 	"github.com/FerretDB/FerretDB/internal/handlers/tigris/tjson"
 	"github.com/FerretDB/FerretDB/internal/types"
 )
 
 // getJSONSchema returns a marshaled JSON schema received from validator -> $jsonSchema.
-func getJSONSchema(doc *types.Document) (*tjson.Schema, error) {
-	v, err := common.GetRequiredParam[*types.Document](doc, "validator")
+func getJSONSchema(tdb *tigrisdb.TigrisDB, doc *types.Document, db string, collection string) (*tjson.Schema, error) {
+	collection = tigrisdb.EncodeCollName(collection)
+
+	v, err := common.GetOptionalParam[*types.Document](doc, "validator", types.MakeDocument(0))
 	if err != nil {
 		return nil, err
 	}
 
 	schema, err := common.GetRequiredParam[string](v, "$tigrisSchemaString")
 	if err != nil {
-		return nil, err
+		tSchema, err1 := tdb.RefreshCollectionSchema(context.TODO(), db, collection)
+		if err1 != nil {
+			return nil, err1
+		}
+
+		return tSchema, nil
 	}
 
 	if schema == "" {

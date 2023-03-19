@@ -23,7 +23,6 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v4"
-	"golang.org/x/exp/maps"
 
 	"github.com/FerretDB/FerretDB/internal/handlers/pg/pjson"
 	"github.com/FerretDB/FerretDB/internal/types"
@@ -96,7 +95,7 @@ func unmarshalExplain(b []byte) (*types.Document, error) {
 		return nil, lazyerrors.Error(errors.New("no execution plan returned"))
 	}
 
-	return convertJSON(plans[0]).(*types.Document), nil
+	return types.ConvertJSON(plans[0]).(*types.Document), nil
 }
 
 // QueryDocuments returns an queryIterator to fetch documents for given SQLParams.
@@ -364,34 +363,4 @@ func filterEqual(p *Placeholder, k string, v any) (filter string, args []any) {
 	}
 
 	return
-}
-
-// convertJSON transforms decoded JSON map[string]any value into *types.Document.
-func convertJSON(value any) any {
-	switch value := value.(type) {
-	case map[string]any:
-		d := types.MakeDocument(len(value))
-		keys := maps.Keys(value)
-		for _, k := range keys {
-			v := value[k]
-			d.Set(k, convertJSON(v))
-		}
-		return d
-
-	case []any:
-		a := types.MakeArray(len(value))
-		for _, v := range value {
-			a.Append(convertJSON(v))
-		}
-		return a
-
-	case nil:
-		return types.Null
-
-	case float64, string, bool:
-		return value
-
-	default:
-		panic(fmt.Sprintf("unsupported type: %[1]T (%[1]v)", value))
-	}
 }

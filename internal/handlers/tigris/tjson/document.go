@@ -18,6 +18,9 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"strings"
+
+	"github.com/AlekSi/pointer"
 
 	"github.com/FerretDB/FerretDB/internal/types"
 	"github.com/FerretDB/FerretDB/internal/util/lazyerrors"
@@ -60,7 +63,8 @@ func (doc *documentType) UnmarshalJSONWithSchema(data []byte, schema *Schema) er
 	if err := json.Unmarshal(b, &keys); err != nil {
 		return lazyerrors.Error(err)
 	}
-	if len(keys)+1 != len(rawMessages) {
+
+	if len(keys)+1 != len(rawMessages) && (schema.AdditionalProperties == nil || !*schema.AdditionalProperties) {
 		return lazyerrors.Errorf(
 			"tjson.documentType.UnmarshalJSONWithSchema: %d elements in $k, %d in total",
 			len(keys), len(rawMessages),
@@ -69,20 +73,35 @@ func (doc *documentType) UnmarshalJSONWithSchema(data []byte, schema *Schema) er
 
 	td := must.NotFail(types.NewDocument())
 	for _, key := range keys {
-		b, ok = rawMessages[key]
+		b, ok = rawMessages[EncodeKeyName(key)]
 		if !ok {
+			if pointer.Get(schema.AdditionalProperties) {
+				continue
+			}
 			return lazyerrors.Errorf("tjson.documentType.UnmarshalJSONWithSchema: missing key %q", key)
 		}
+
+		var v any
+		var err error
 
 		// If the field is set as null and is not present in the schema, it's a valid case.
 		// If the field is set as something but null and is not present in the schema, we should return an error.
 		s := schema.Properties[key]
 		if s == nil && !bytes.Equal(b, []byte("null")) {
-			return lazyerrors.Errorf("tjson.documentType.UnmarshalJSONWithSchema: no schema for key %q", key)
-		}
-		v, err := Unmarshal(b, s)
-		if err != nil {
-			return lazyerrors.Error(err)
+			if !pointer.Get(schema.AdditionalProperties) {
+				return lazyerrors.Errorf("tjson.documentType.UnmarshalJSONWithSchema: no schema for key %q", key)
+			}
+
+			if err = json.Unmarshal(b, &v); err != nil {
+				return lazyerrors.Errorf("tjson.documentType.UnmarshalJSONWithSchema: no schema for key %q", key)
+			}
+
+			v = types.ConvertJSON(v)
+		} else {
+			v, err = Unmarshal(b, s)
+			if err != nil {
+				return lazyerrors.Error(err)
+			}
 		}
 
 		td.Set(key, v)
@@ -96,25 +115,27 @@ func (doc *documentType) UnmarshalJSONWithSchema(data []byte, schema *Schema) er
 func (doc *documentType) MarshalJSON() ([]byte, error) {
 	td := types.Document(*doc)
 
-	var buf bytes.Buffer
+	buf := bytes.NewBufferString(`{"$k":`)
 
-	buf.WriteString(`{"$k":`)
 	keys := td.Keys()
 	if keys == nil {
 		keys = []string{}
 	}
+
 	b, err := json.Marshal(keys)
 	if err != nil {
 		return nil, lazyerrors.Error(err)
 	}
+
 	buf.Write(b)
 
 	for _, key := range keys {
 		buf.WriteByte(',')
 
-		if b, err = json.Marshal(key); err != nil {
+		if b, err = json.Marshal(EncodeKeyName(key)); err != nil {
 			return nil, lazyerrors.Error(err)
 		}
+
 		buf.Write(b)
 		buf.WriteByte(':')
 
@@ -122,6 +143,7 @@ func (doc *documentType) MarshalJSON() ([]byte, error) {
 		if err != nil {
 			return nil, lazyerrors.Error(err)
 		}
+
 		b, err := Marshal(value)
 		if err != nil {
 			return nil, lazyerrors.Error(err)
@@ -132,6 +154,39 @@ func (doc *documentType) MarshalJSON() ([]byte, error) {
 
 	buf.WriteByte('}')
 	return buf.Bytes(), nil
+}
+
+// NeedKeyEncode check if the key needs encoding.
+func NeedKeyEncode(name string) bool {
+	if name[0] >= '0' && name[0] <= '9' {
+		return true
+	}
+
+	return strings.ContainsAny(name, "-.")
+}
+
+// EncodeKeyName allows to have keys started with a digit and contain dashes and dots.
+func EncodeKeyName(name string) string {
+	if !NeedKeyEncode(name) {
+		return name
+	}
+
+	name = strings.ReplaceAll(name, ".", "__E__")
+
+	return "__D__" + strings.ReplaceAll(name, "-", "__C__")
+}
+
+// DecodeKeyName opposite of EncodeKeyName.
+func DecodeKeyName(name string) string {
+	// Not encoded return as is
+	if !strings.HasPrefix(name, "__D__") {
+		return name
+	}
+
+	name = strings.ReplaceAll(name, "__E__", ".")
+	name = strings.ReplaceAll(name, "__C__", "-")
+
+	return strings.TrimPrefix(name, "__D__")
 }
 
 // check interfaces

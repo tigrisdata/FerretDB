@@ -36,6 +36,10 @@ type queryIterator struct {
 	iter driver.Iterator
 
 	token *resource.Token
+
+	db       *TigrisDB
+	dbName   string
+	collName string
 }
 
 // newIterator returns a new queryIterator for the given driver.Iterator.
@@ -45,10 +49,13 @@ type queryIterator struct {
 // No documents are possible and return already done iterator.
 func newQueryIterator(ctx context.Context, titer driver.Iterator, schema *tjson.Schema) types.DocumentsIterator {
 	iter := &queryIterator{
-		ctx:    ctx,
-		schema: schema,
-		iter:   titer,
-		token:  resource.NewToken(),
+		ctx:      ctx,
+		schema:   schema,
+		iter:     titer,
+		token:    resource.NewToken(),
+		db:       tdb,
+		collName: collName,
+		dbName:   dbName,
 	}
 
 	resource.Track(iter, iter.token)
@@ -90,6 +97,8 @@ func (iter *queryIterator) Next() (struct{}, *types.Document, error) {
 		switch {
 		case err == nil:
 			// nothing
+		case IsNotFound(err):
+			// Collection or project doesn't exist
 		case IsInvalidArgument(err):
 			// Skip errors from filtering different types.
 			// For example, given document {v: 42} and filter {v: "42"},
@@ -108,7 +117,15 @@ func (iter *queryIterator) Next() (struct{}, *types.Document, error) {
 
 	doc, err := tjson.Unmarshal(document, iter.schema)
 	if err != nil {
-		return unused, nil, lazyerrors.Error(err)
+		iter.schema, err = iter.db.RefreshCollectionSchema(iter.ctx, iter.dbName, iter.collName)
+		if err != nil {
+			return unused, nil, lazyerrors.Error(err)
+		}
+
+		doc, err = tjson.Unmarshal(document, iter.schema)
+		if err != nil {
+			return unused, nil, lazyerrors.Error(err)
+		}
 	}
 
 	return unused, doc.(*types.Document), nil
