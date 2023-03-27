@@ -40,7 +40,6 @@ type queryIterator struct {
 	m     sync.Mutex
 	iter  driver.Iterator
 	stack []byte // not really under mutex, but placed there to make struct smaller (due to alignment)
-	n     int
 
 	db       *TigrisDB
 	dbName   string
@@ -54,7 +53,7 @@ type queryIterator struct {
 // No documents are possible and return already done iterator.
 func newQueryIterator(ctx context.Context, tdb *TigrisDB, dbName string, collName string, titer driver.Iterator,
 	schema *tjson.Schema,
-) iterator.Interface[int, *types.Document] {
+) types.DocumentsIterator {
 	iter := &queryIterator{
 		ctx:      ctx,
 		schema:   schema,
@@ -89,17 +88,19 @@ func newQueryIterator(ctx context.Context, tdb *TigrisDB, dbName string, collNam
 //
 // Otherwise, as the first value it returns the number of the current iteration (starting from 0),
 // as the second value it returns the document.
-func (iter *queryIterator) Next() (int, *types.Document, error) {
+func (iter *queryIterator) Next() (struct{}, *types.Document, error) {
 	iter.m.Lock()
 	defer iter.m.Unlock()
 
+	var unused struct{}
+
 	// ignore context error, if any, if iterator is already closed
 	if iter.iter == nil {
-		return 0, nil, iterator.ErrIteratorDone
+		return unused, nil, iterator.ErrIteratorDone
 	}
 
 	if err := iter.ctx.Err(); err != nil {
-		return 0, nil, err
+		return unused, nil, err
 	}
 
 	var document driver.Document
@@ -117,32 +118,30 @@ func (iter *queryIterator) Next() (int, *types.Document, error) {
 			// MongoDB would skip that document because the type is different.
 			// Tigris returns a schema error in such cases that we ignore.
 		default:
-			return 0, nil, lazyerrors.Error(err)
+			return unused, nil, lazyerrors.Error(err)
 		}
 
 		// to avoid context cancellation changing the next `Next()` error
 		// from `iterator.ErrIteratorDone` to `context.Canceled`
 		iter.close()
 
-		return 0, nil, iterator.ErrIteratorDone
+		return unused, nil, iterator.ErrIteratorDone
 	}
 
 	doc, err := tjson.Unmarshal(document, iter.schema)
 	if err != nil {
 		iter.schema, err = iter.db.RefreshCollectionSchema(iter.ctx, iter.dbName, iter.collName)
 		if err != nil {
-			return 0, nil, lazyerrors.Error(err)
+			return unused, nil, lazyerrors.Error(err)
 		}
 
 		doc, err = tjson.Unmarshal(document, iter.schema)
 		if err != nil {
-			return 0, nil, lazyerrors.Error(err)
+			return unused, nil, lazyerrors.Error(err)
 		}
 	}
 
-	iter.n++
-
-	return iter.n - 1, doc.(*types.Document), nil
+	return unused, doc.(*types.Document), nil
 }
 
 // Close implements iterator.Interface.
@@ -170,5 +169,5 @@ func (iter *queryIterator) close() {
 
 // check interfaces
 var (
-	_ iterator.Interface[int, *types.Document] = (*queryIterator)(nil)
+	_ types.DocumentsIterator = (*queryIterator)(nil)
 )
