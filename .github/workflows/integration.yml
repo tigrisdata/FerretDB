@@ -10,6 +10,7 @@ on:
   push:
     branches:
       - main
+      - fix_max_length_1
   schedule:
     - cron: "12 3 * * *" # after Docker workflow
 
