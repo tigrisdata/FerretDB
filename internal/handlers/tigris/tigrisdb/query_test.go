@@ -55,7 +55,6 @@ func TestQueryDocuments(t *testing.T) {
 			Collection: collName,
 		})
 		require.NoError(t, err)
-
 		require.NotNil(t, iter)
 
 		defer iter.Close()
@@ -101,8 +100,9 @@ func TestQueryDocuments(t *testing.T) {
 			Collection: collName,
 		})
 		require.NoError(t, err)
-
 		require.NotNil(t, iter)
+
+		defer iter.Close()
 
 		n, doc, err := iter.Next()
 		require.Equal(t, iterator.ErrIteratorDone, err)
@@ -126,8 +126,9 @@ func TestQueryDocuments(t *testing.T) {
 			Collection: collName,
 		})
 		require.NoError(t, err)
-
 		require.NotNil(t, iter)
+
+		defer iter.Close()
 
 		n, doc, err := iter.Next()
 		require.Equal(t, iterator.ErrIteratorDone, err)
@@ -151,7 +152,6 @@ func TestQueryDocuments(t *testing.T) {
 			Collection: collName,
 		})
 		require.NoError(t, err)
-
 		require.NotNil(t, iter)
 
 		iter.Close()
@@ -185,7 +185,6 @@ func TestQueryDocuments(t *testing.T) {
 			Collection: collName,
 		})
 		require.NoError(t, err)
-
 		require.NotNil(t, iter)
 
 		cancel()
@@ -268,7 +267,7 @@ func TestBuildFilter(t *testing.T) {
 		},
 		"ImplicitMaxFloat64": {
 			filter:   must.NotFail(types.NewDocument("v", math.MaxFloat64)),
-			expected: `{"v":{"$gt":9007199254740992}}`,
+			expected: `{"v":{"$gt":9007199254740991}}`,
 		},
 		"ImplicitBool": {
 			filter:   must.NotFail(types.NewDocument("v", true)),
@@ -320,7 +319,7 @@ func TestBuildFilter(t *testing.T) {
 			filter: must.NotFail(types.NewDocument(
 				"v", must.NotFail(types.NewDocument("$eq", math.MaxFloat64)),
 			)),
-			expected: `{"v":{"$gt":9007199254740992}}`,
+			expected: `{"v":{"$gt":9007199254740991}}`,
 		},
 		"EqBool": {
 			filter: must.NotFail(types.NewDocument(

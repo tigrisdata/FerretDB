@@ -16,34 +16,30 @@ package tigrisdb
 
 import (
 	"context"
-	"runtime"
-	"runtime/pprof"
 	"sync"
 
 	"github.com/tigrisdata/tigris-client-go/driver"
 
 	"github.com/FerretDB/FerretDB/internal/handlers/tigris/tjson"
 	"github.com/FerretDB/FerretDB/internal/types"
-	"github.com/FerretDB/FerretDB/internal/util/debugbuild"
 	"github.com/FerretDB/FerretDB/internal/util/iterator"
 	"github.com/FerretDB/FerretDB/internal/util/lazyerrors"
+	"github.com/FerretDB/FerretDB/internal/util/resource"
 )
-
-// queryIteratorProfiles keeps track on all query iterators.
-var queryIteratorProfiles = pprof.NewProfile("github.com/FerretDB/FerretDB/internal/handlers/tigris/tigrisdb.queryIterator")
 
 // queryIterator implements iterator.Interface to fetch documents from the database.
 type queryIterator struct {
 	ctx    context.Context
 	schema *tjson.Schema
 
-	m     sync.Mutex
-	iter  driver.Iterator
-	stack []byte // not really under mutex, but placed there to make struct smaller (due to alignment)
+	m    sync.Mutex
+	iter driver.Iterator
 
 	db       *TigrisDB
 	dbName   string
 	collName string
+
+	token *resource.Token
 }
 
 // newIterator returns a new queryIterator for the given driver.Iterator.
@@ -58,22 +54,13 @@ func newQueryIterator(ctx context.Context, tdb *TigrisDB, dbName string, collNam
 		ctx:      ctx,
 		schema:   schema,
 		iter:     titer,
-		stack:    debugbuild.Stack(),
 		db:       tdb,
 		collName: collName,
 		dbName:   dbName,
+		token:    resource.NewToken(),
 	}
 
-	queryIteratorProfiles.Add(iter, 1)
-
-	runtime.SetFinalizer(iter, func(iter *queryIterator) {
-		msg := "queryIterator.Close() has not been called"
-		if iter.stack != nil {
-			msg += "\nqueryIterator created by " + string(iter.stack)
-		}
-
-		panic(msg)
-	})
+	resource.Track(iter, iter.token)
 
 	return iter
 }
@@ -99,7 +86,7 @@ func (iter *queryIterator) Next() (struct{}, *types.Document, error) {
 		return unused, nil, iterator.ErrIteratorDone
 	}
 
-	if err := iter.ctx.Err(); err != nil {
+	if err := context.Cause(iter.ctx); err != nil {
 		return unused, nil, err
 	}
 
@@ -158,15 +145,13 @@ func (iter *queryIterator) Close() {
 //
 // This should be called only when the caller already holds the mutex.
 func (iter *queryIterator) close() {
-	queryIteratorProfiles.Remove(iter)
-
-	runtime.SetFinalizer(iter, nil)
-
 	if iter.iter != nil {
 		iter.iter.Close()
 
 		iter.iter = nil
 	}
+
+	resource.Untrack(iter, iter.token)
 }
 
 // check interfaces

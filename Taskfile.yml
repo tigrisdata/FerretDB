@@ -5,7 +5,7 @@ env:
   GORACE: halt_on_error=1,history_size=2
 
 vars:
-  INTEGRATIONTIME: 45m
+  INTEGRATIONTIME: 30m
   BENCHTIME: 5s
   FUZZTIME: 15s
   FUZZCORPUS: ../fuzz-corpus
@@ -65,14 +65,14 @@ tasks:
   env-up-detach:
     cmds:
       - >
-        docker compose up --always-recreate-deps --force-recreate --remove-orphans --renew-anon-volumes --timeout=0 --detach
+        docker compose up --always-recreate-deps --force-recreate --remove-orphans --renew-anon-volumes --detach
         --build
         {{.SERVICES}}
 
   env-up-detach-offline:
     cmds:
       - >
-        docker compose up --always-recreate-deps --force-recreate --remove-orphans --renew-anon-volumes --timeout=0 --detach
+        docker compose up --always-recreate-deps --force-recreate --remove-orphans --renew-anon-volumes --detach
         {{.SERVICES}}
 
   env-setup:
@@ -104,7 +104,7 @@ tasks:
   env-down:
     desc: "Stop development environment"
     cmds:
-      - docker compose down --remove-orphans --timeout=0 --volumes
+      - docker compose down --remove-orphans --volumes
 
   env-data:
     desc: "Fill `test` database with data for experiments"
@@ -362,7 +362,7 @@ tasks:
     cmds:
       - >
         docker compose run --rm trivy filesystem .
-        --secret-config=./build/trivy-secret.yaml
+        --secret-config=./build/trivy-secret.yml
         --ignorefile=./build/.trivyignore
         --cache-dir=./.cache/trivy
         --exit-code=1
@@ -501,7 +501,7 @@ tasks:
           PLATFORM: linux/amd64 # TODO https://github.com/FerretDB/FerretDB/issues/2171
           DOCKER_IMAGES: ignored
           OUTPUT: type=local,dest=tmp/build
-      - cmd: bin/nfpm{{exeExt}} package --config=build/nfpm.yaml --packager=deb --target=tmp/debs/ferretdb.deb
+      - cmd: bin/nfpm{{exeExt}} package --config=build/nfpm.yml --packager=deb --target=tmp/debs/ferretdb.deb
         env:
           ARCH: amd64
           VERSION:
@@ -518,7 +518,7 @@ tasks:
           PLATFORM: linux/amd64 # TODO https://github.com/FerretDB/FerretDB/issues/2171
           DOCKER_IMAGES: ignored
           OUTPUT: type=local,dest=tmp/build
-      - cmd: bin/nfpm{{exeExt}} package --config=build/nfpm.yaml --packager=rpm --target=tmp/rpms/ferretdb.rpm
+      - cmd: bin/nfpm{{exeExt}} package --config=build/nfpm.yml --packager=rpm --target=tmp/rpms/ferretdb.rpm
         env:
           ARCH: amd64
           VERSION:
