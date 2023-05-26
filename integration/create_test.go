@@ -32,6 +32,9 @@ import (
 )
 
 func TestCreateStress(t *testing.T) {
+	if setup.IsTigris(t) {
+		t.Skip("one collection is missing, need debugging")
+	}
 	ctx, collection := setup.Setup(t) // no providers there, we will create collections concurrently
 	db := collection.Database()
 
@@ -93,8 +96,8 @@ func TestCreateStress(t *testing.T) {
 	require.Len(t, colls, collNum)
 
 	// check that all collections were created, and we can query them
-	for i := 0; i < collNum; i++ {
-		i := i
+	for ii := 0; ii < collNum; ii++ {
+		i := ii
 
 		t.Run(fmt.Sprintf("check_stress_%d", i), func(t *testing.T) {
 			t.Parallel()

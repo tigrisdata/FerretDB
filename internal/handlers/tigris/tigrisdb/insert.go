@@ -86,8 +86,24 @@ func (tdb *TigrisDB) InsertManyDocuments(ctx context.Context, db, collection str
 		return lazyerrors.Error(err)
 	}
 
-	if _, err = tdb.CreateOrUpdateCollection(ctx, db, collection, schema); err != nil && !IsAlreadyExists(err) {
-		return lazyerrors.Error(err)
+	if _, err = tdb.CreateOrUpdateCollection(ctx, db, collection, schema); err != nil {
+		if IsInvalidArgument(err) && strings.HasPrefix(err.Error(), "data type mismatch for field \"") {
+			keyPath := strings.TrimPrefix(strings.TrimSuffix(err.Error(), `"`), `data type mismatch for field "`)
+			if !strings.Contains(keyPath, ".") {
+				return lazyerrors.Error(err)
+			}
+
+			keyParts := strings.Split(keyPath, ".")
+			if err = convertToMap(keyParts, schema); err != nil {
+				return lazyerrors.Error(err)
+			}
+
+			if _, err = tdb.CreateOrUpdateCollection(ctx, db, collection, schema); err != nil {
+				return lazyerrors.Error(err)
+			}
+		} else {
+			return lazyerrors.Error(err)
+		}
 	}
 
 	_, err = tdb.Driver.UseDatabase(db).Insert(ctx, collection, insertDocs)

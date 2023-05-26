@@ -57,6 +57,8 @@ services:
       - 8081:8081
     environment:
       - TIGRIS_SERVER_LOG_LEVEL=info
+      - TIGRIS_SERVER_METRICS_ENABLED=false
+      - TIGRIS_SERVER_TRACING_ENABLED=false
 
   # Additional instances for faster integration tests.
   # Due to the single-core nature of FoundationDB, that's the easiest way to speed up them.
@@ -69,6 +71,8 @@ services:
       - 8091:8081
     environment:
       - TIGRIS_SERVER_LOG_LEVEL=info
+      - TIGRIS_SERVER_METRICS_ENABLED=false
+      - TIGRIS_SERVER_TRACING_ENABLED=false
   tigris2:
     build:
       context: ./build/deps
@@ -78,6 +82,8 @@ services:
       - 8092:8081
     environment:
       - TIGRIS_SERVER_LOG_LEVEL=info
+      - TIGRIS_SERVER_METRICS_ENABLED=false
+      - TIGRIS_SERVER_TRACING_ENABLED=false
   tigris3:
     build:
       context: ./build/deps
@@ -87,6 +93,8 @@ services:
       - 8093:8081
     environment:
       - TIGRIS_SERVER_LOG_LEVEL=info
+      - TIGRIS_SERVER_METRICS_ENABLED=false
+      - TIGRIS_SERVER_TRACING_ENABLED=false
   tigris4:
     build:
       context: ./build/deps
@@ -96,6 +104,8 @@ services:
       - 8094:8081
     environment:
       - TIGRIS_SERVER_LOG_LEVEL=info
+      - TIGRIS_SERVER_METRICS_ENABLED=false
+      - TIGRIS_SERVER_TRACING_ENABLED=false
 
   mongodb:
     build:
