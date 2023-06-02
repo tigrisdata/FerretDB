@@ -16,6 +16,7 @@ package setup
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"runtime/trace"
 	"strings"
@@ -188,7 +189,14 @@ func setupCompatCollections(tb testing.TB, ctx context.Context, client *mongo.Cl
 		docs := shareddata.Docs(provider)
 		require.NotEmpty(tb, docs)
 
+		var e mongo.BulkWriteException
+
 		res, err := collection.InsertMany(collCtx, docs)
+		if errors.As(err, &e) && e.HasErrorCode(121) {
+			SkipForTigrisWithReason(tb, err.Error())
+			continue
+		}
+
 		require.NoError(tb, err, "%s: backend %q, collection %s", provider.Name(), backend, fullName)
 		require.Len(tb, res.InsertedIDs, len(docs))
 

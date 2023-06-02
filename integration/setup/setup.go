@@ -17,6 +17,7 @@ package setup
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"path/filepath"
@@ -219,7 +220,13 @@ func setupCollection(tb testing.TB, ctx context.Context, client *mongo.Client, o
 		docs := shareddata.Docs(provider)
 		require.NotEmpty(tb, docs)
 
+		var e mongo.BulkWriteException
+
 		res, err := collection.InsertMany(provCtx, docs)
+		if errors.As(err, &e) && e.HasErrorCode(121) {
+			SkipForTigrisWithReason(tb, err.Error())
+			continue
+		}
 		require.NoError(tb, err, "provider %q", provider.Name())
 		require.Len(tb, res.InsertedIDs, len(docs))
 		inserted = true

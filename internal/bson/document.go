@@ -456,6 +456,17 @@ func (doc Document) MarshalBinary() ([]byte, error) {
 				return nil, lazyerrors.Error(err)
 			}
 
+		case int:
+			bufw.WriteByte(byte(tagInt64))
+
+			if err := ename.WriteTo(bufw); err != nil {
+				return nil, lazyerrors.Error(err)
+			}
+
+			if err := int64Type(elV).WriteTo(bufw); err != nil {
+				return nil, lazyerrors.Error(err)
+			}
+
 		default:
 			return nil, lazyerrors.Errorf("bson.Document.MarshalBinary: unhandled element type %T", elV)
 		}

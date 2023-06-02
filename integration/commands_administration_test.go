@@ -38,7 +38,7 @@ import (
 )
 
 func TestCommandsAdministrationCreateDropList(t *testing.T) {
-	setup.SkipForTigris(t)
+	setup.SkipForTigrisWithReason(t, "unknown")
 
 	t.Parallel()
 	ctx, collection := setup.Setup(t) // no providers there
@@ -96,7 +96,7 @@ func TestCommandsAdministrationCreateDropList(t *testing.T) {
 }
 
 func TestCommandsAdministrationCreateDropListDatabases(t *testing.T) {
-	setup.SkipForTigris(t)
+	setup.SkipForTigrisWithReason(t, "unknown")
 
 	t.Parallel()
 	ctx, collection := setup.Setup(t) // no providers there
@@ -595,6 +595,8 @@ func TestCommandsAdministrationCollStatsEmpty(t *testing.T) {
 }
 
 func TestCommandsAdministrationCollStats(t *testing.T) {
+	setup.SkipForTigrisWithReason(t, "index stats not supported")
+
 	t.Parallel()
 	ctx, collection := setup.Setup(t, shareddata.DocumentsStrings)
 
@@ -616,6 +618,8 @@ func TestCommandsAdministrationCollStats(t *testing.T) {
 }
 
 func TestCommandsAdministrationCollStatsWithScale(t *testing.T) {
+	setup.SkipForTigrisWithReason(t, "index stats not supported")
+
 	t.Parallel()
 	ctx, collection := setup.Setup(t, shareddata.DocumentsStrings)
 
@@ -766,7 +770,7 @@ func TestCommandsAdministrationDBStatsEmptyWithScale(t *testing.T) {
 
 //nolint:paralleltest // we test a global server status
 func TestCommandsAdministrationServerStatus(t *testing.T) {
-	setup.SkipForTigris(t)
+	setup.SkipForTigrisWithReason(t, "index stats not supported")
 
 	ctx, collection := setup.Setup(t)
 

@@ -10,8 +10,6 @@ on:
   push:
     branches:
       - main
-  schedule:
-    - cron: "12 2 * * *"
 
 # Do not run this workflow in parallel for any PR change.
 concurrency:

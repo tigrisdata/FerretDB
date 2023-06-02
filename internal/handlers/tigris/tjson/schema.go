@@ -209,7 +209,6 @@ func (s *Schema) Marshal() ([]byte, error) {
 func (s *Schema) Unmarshal(b []byte) error {
 	r := bytes.NewReader(b)
 	dec := json.NewDecoder(r)
-	dec.DisallowUnknownFields()
 
 	if err := dec.Decode(s); err != nil {
 		return err
